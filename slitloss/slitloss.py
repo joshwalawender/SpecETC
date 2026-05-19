@@ -3,9 +3,9 @@ from astropy.modeling.models import Gaussian2D, Moffat2D
 from astropy import units as u
 
 
-def slit_throughput(seeing, slit_width,
+def slit_throughput(seeing, tel, spec, det,
                     amplitude=1, alpha=1,
-                    sample_size=0.02, # arcsec
+                    sample_size=10,
                    ):
     # Generate PSF
     if isinstance(seeing, u.Quantity): seeing = seeing.to(u.arcsec).value
@@ -13,16 +13,16 @@ def slit_throughput(seeing, slit_width,
                    gamma=seeing/2, alpha=alpha)
 #     psf = Gaussian2D(amplitude=amplitude, x_mean=0, y_mean=0,
 #                      x_stddev=seeing/2.355, y_stddev=seeing/2.355)
-    gstart = -3*seeing # arcsec
-    gend = -gstart+sample_size # arcsec
-    gx = np.arange(gstart, gend, sample_size)
-    gy = np.arange(gstart, gend, sample_size)
+    pscale = tel.pixel_scale(det.pixel_size)
+    gstart = -5*seeing # arcsec
+    gend = -gstart+pscale.value/sample_size # arcsec
+    gx = np.arange(gstart, gend, pscale.value/sample_size)
+    gy = np.arange(gstart, gend, pscale.value/sample_size)
     xv, yv = np.meshgrid(gx, gy)
     total_psf_flux = np.sum(psf(xv, yv))
 
     # Generate Slit Mask
-    if not isinstance(slit_width, u.Quantity): slit_width *= u.arcsec
-    slit_width = slit_width.to(u.arcsec).value
+    slit_width = tel.slit_width(spec.slit_size).value
     slit_start = int(np.argmin(abs(gx+slit_width/2)))
     slit_end = int(np.argmin(abs(gx-slit_width/2)))
     w = (xv > gx[slit_start]) & (xv < gx[slit_end])
@@ -31,7 +31,9 @@ def slit_throughput(seeing, slit_width,
     slit_flux = float(np.sum(psf(xv[w], yv[w])))
     slit_throughput = float(slit_flux/total_psf_flux)
 
-    return slit_throughput
+    trace_profile = np.sum(psf(xv, yv)*wint, axis=1)
+
+    return slit_throughput, trace_profile
 
 
 

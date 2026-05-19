@@ -1,5 +1,7 @@
 import numpy as np
 from astropy import units as u
+from synphot import SpectralElement
+from synphot.models import Box1D
 
 
 class Telescope(object):
@@ -16,10 +18,16 @@ class Telescope(object):
         self.obstruction = obstruction
         if not isinstance(self.obstruction, u.Quantity): self.obstruction *= u.mm
         self.area = np.pi*(self.aperture**2-self.obstruction**2).to(u.cm**2)
+        self.efficiency = SpectralElement(Box1D, amplitude=0.90**2, x_0=5500, width=3800)
+
 
     def slit_width(self, slit_size):
         if not isinstance(slit_size, u.Quantity): slit_size *= u.micron
         return 206265*u.arcsec*slit_size.to(u.mm)/self.fl.to(u.mm)
+
+    def pixel_scale(self, pixel_size):
+        if not isinstance(pixel_size, u.Quantity): pixel_size *= u.micron
+        return 206265*u.arcsec*pixel_size.to(u.mm)/self.fl.to(u.mm)
 
     def __str__(self):
         return f"{self.name}"
