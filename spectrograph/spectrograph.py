@@ -6,23 +6,30 @@ from synphot.models import Box1D
 
 
 class Spectrograph(object):
-    def __init__(self, name, slit_size, dispersion, eff):
+    def __init__(self, name, slit_size, dispersion, eff,
+                 wav1=3600, wav2=7400):
+        self.wav1 = wav1
+        self.wav2 = wav2
+        self.wavc = (wav1+wav2)/2
+        self.wav_width = wav2-wav1
         self.name = name
         self.slit_size = slit_size
         self.dispersion = dispersion
+        self.binset = None
+        self.AperPix = None
         if isinstance(eff, float):
-            self.efficiency = SpectralElement(Box1D, amplitude=eff,
-                                              x_0=5500, width=3800)
+            self.grating_efficiency = SpectralElement(Box1D, amplitude=eff,
+                                              x_0=self.wavc, width=self.wav_width)
         elif type(eff) in [str, Path]:
             efffile = Path(eff).expanduser().absolute()
             if efffile.exists():
-                self.efficiency = SpectralElement.from_file(str(efffile))
+                self.grating_efficiency = SpectralElement.from_file(str(efffile))
             else:
-                self.efficiency = SpectralElement(Box1D, amplitude=0.25,
-                                                  x_0=5500, width=3800)
+                self.grating_efficiency = SpectralElement(Box1D, amplitude=0.25,
+                                                  x_0=self.wavc, width=self.wav_width)
         else:
-            self.efficiency = SpectralElement(Box1D, amplitude=0.25,
-                                              x_0=5500, width=3800)
+            self.grating_efficiency = SpectralElement(Box1D, amplitude=0.25,
+                                              x_0=self.wavc, width=self.wav_width)
 
     def __str__(self):
         return f"{self.name}"
@@ -58,6 +65,11 @@ class Spectrograph(object):
         trace_profile = np.sum(psf(xv, yv)*wint, axis=1)
         trace_profile *= slit_throughput/np.sum(trace_profile)
         
-        self.total_efficiency = self.efficiency * slit_throughput
+        self.efficiency = self.grating_efficiency * slit_throughput
     
         return slit_throughput, trace_profile
+
+    def generate_binset(self, det):
+        self.AperPix = self.dispersion*det.pixel_size.to(u.mm)
+        self.binset = np.arange(self.wav1, self.wav2, self.AperPix.value)
+        
