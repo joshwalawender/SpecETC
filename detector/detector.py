@@ -6,10 +6,11 @@ from synphot.models import Box1D
 
 
 class Detector(object):
-    def __init__(self, name, pixel_size, Nx, Ny, QE):
+    def __init__(self, name, pixel_size, Nx, Ny, QE, RN):
         self.name = name
         self.pixel_size = pixel_size
         self.pixel_shape = np.array((Nx, Ny))
+        self.RN = RN
         self.size = self.pixel_size.to(u.mm)*self.pixel_shape
         if isinstance(QE, float):
             self.efficiency = SpectralElement(Box1D, amplitude=QE,
