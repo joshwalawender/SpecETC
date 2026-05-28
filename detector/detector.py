@@ -6,25 +6,29 @@ from synphot.models import Box1D
 
 
 class Detector(object):
-    def __init__(self, name, pixel_size, Nx, Ny, QE, RN):
+    def __init__(self, name, pixel_size, Nx, Ny, QE, RN, wav1=None, wav2=None):
         self.name = name
         self.pixel_size = pixel_size
         self.pixel_shape = np.array((Nx, Ny))
         self.RN = RN
         self.size = self.pixel_size.to(u.mm)*self.pixel_shape
-        if isinstance(QE, float):
-            self.efficiency = SpectralElement(Box1D, amplitude=QE,
-                                              x_0=6700, width=6000)
-        elif type(QE) in [str, Path]:
+
+        self.efficiency = None
+        if type(QE) in [str, Path]:
             QEfile = Path(QE).expanduser().absolute()
             if QEfile.exists():
+                print(f'{name}: Reading detector efficiency from {QEfile}')
                 self.efficiency = SpectralElement.from_file(str(QEfile))
             else:
-                self.efficiency = SpectralElement(Box1D, amplitude=0.5,
-                                                  x_0=6700, width=6000)
+                print('ERROR: {QEfile} not found')
         else:
-            self.efficiency = SpectralElement(Box1D, amplitude=0.5,
-                                              x_0=6700, width=6000)
+            assert wav1 is not None
+            assert wav2 is not None
+            wavc = (wav1+wav2)/2
+            wav_width = wav2-wav1
+            if type(QE) in [float, int]:
+                self.efficiency = SpectralElement(Box1D, amplitude=QE,
+                                                  x_0=wavc, width=wav_width)
 
 
     def __str__(self):

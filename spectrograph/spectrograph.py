@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 from astropy import units as u
 from astropy.modeling.models import Gaussian2D, Moffat2D
@@ -7,29 +8,33 @@ from synphot.models import Box1D
 
 class Spectrograph(object):
     def __init__(self, name, slit_size, dispersion, eff,
-                 wav1=3600, wav2=7400):
-        self.wav1 = wav1
-        self.wav2 = wav2
-        self.wavc = (wav1+wav2)/2
-        self.wav_width = wav2-wav1
+                 wav1=None, wav2=None, magnification=1):
         self.name = name
         self.slit_size = slit_size
         self.dispersion = dispersion
         self.binset = None
         self.AperPix = None
-        if isinstance(eff, float):
-            self.grating_efficiency = SpectralElement(Box1D, amplitude=eff,
-                                              x_0=self.wavc, width=self.wav_width)
-        elif type(eff) in [str, Path]:
+        self.magnification = magnification
+
+        self.grating_efficiency = None
+        if type(eff) in [str, Path]:
             efffile = Path(eff).expanduser().absolute()
             if efffile.exists():
+                print(f'{name}: Reading spectrograph efficiency from {efffile}')
                 self.grating_efficiency = SpectralElement.from_file(str(efffile))
             else:
-                self.grating_efficiency = SpectralElement(Box1D, amplitude=0.25,
-                                                  x_0=self.wavc, width=self.wav_width)
+                print('ERROR: {efffile} not found')
         else:
-            self.grating_efficiency = SpectralElement(Box1D, amplitude=0.25,
-                                              x_0=self.wavc, width=self.wav_width)
+            assert wav1 is not None
+            assert wav2 is not None
+            wavc = (wav1+wav2)/2
+            wav_width = wav2-wav1
+            if isinstance(eff, float):
+                self.grating_efficiency = SpectralElement(Box1D, amplitude=eff,
+                                                  x_0=wavc, width=wav_width)
+            if self.grating_efficiency is None:
+                self.grating_efficiency = SpectralElement(Box1D, amplitude=0.25,
+                                                  x_0=wavc, width=wav_width)
 
     def __str__(self):
         return f"{self.name}"
@@ -71,5 +76,7 @@ class Spectrograph(object):
 
     def generate_binset(self, det):
         self.AperPix = self.dispersion*det.pixel_size.to(u.mm)
-        self.binset = np.arange(self.wav1, self.wav2, self.AperPix.value)
+        self.binset = np.arange(self.grating_efficiency.waveset[0].value,
+                                self.grating_efficiency.waveset[-1].value,
+                                self.AperPix.value)
         
