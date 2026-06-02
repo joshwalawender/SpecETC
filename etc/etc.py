@@ -50,15 +50,17 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
     mean_SNR = np.mean(SNR)
 
     # Make Plots
-    plt.figure(figsize=(10,6))
-    tstr = (f'Mean Extracted Signal={mean_signal:.0f} ct/pix, Mean SNR={mean_SNR:.0f}\n'\
+    plt.figure(figsize=(10,5))
+    tstr = (f'Mean Extracted Signal={mean_signal:.0f} ct/pix, Mean SNR={mean_SNR:.1f}\n'\
             f'{telescope.name}, {spectrograph.name}, {detector.name}, '\
             f'seeing={seeing:.1f}, exptime={exptime:.0f}')
 
     plt.subplot(5,1,1)
     plt.title(tstr)
 #     norm = vis.No
-    plt.imshow(image, cmap='Grays')
+    norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),
+                              stretch=vis.LinearStretch())
+    plt.imshow(image, norm=norm, cmap='Grays')
     plt.gca().set_xticks([])
     plt.gca().set_yticks([])
     plt.gca().set_xticklabels([])
