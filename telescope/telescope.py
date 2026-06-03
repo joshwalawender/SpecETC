@@ -15,6 +15,7 @@ class Telescope(object):
         # ALPY 600 Spectrograph only accepts light from f/4 beam or slower
         if self.fratio < 4:
             self.aperture = self.fl/4
+            self.fratio = self.fl.to(u.mm)/self.aperture.to(u.mm)
         self.obstruction = obstruction
         if not isinstance(self.obstruction, u.Quantity): self.obstruction *= u.mm
         self.area = np.pi*(self.aperture**2-self.obstruction**2).to(u.cm**2)
