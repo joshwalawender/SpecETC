@@ -1,22 +1,22 @@
-from telescope import ACF14, ACF14reduced
-from spectrograph import Alpy600
-from detector import IMX183
+from telescope import *
+from spectrograph import *
+from detector import *
 
+from pathlib import Path
 import random
 import numpy as np
 from astropy import units as u
 from astropy import visualization as vis
-from synphot import SpectralElement, Observation, SourceSpectrum
-from synphot.models import BlackBody1D
+import synphot
 
 from matplotlib import pyplot as plt
 
 
 def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
-        telescope=ACF14reduced,
-        spectrograph=Alpy600,
-        detector=IMX183,
-        plot=True):
+            telescope=ACF14reduced,
+            spectrograph=Alpy600,
+            detector=IMX183,
+            plot=True):
     spectrograph.generate_binset(detector)
     if not isinstance(seeing, u.Quantity): seeing *= u.arcsec
     seeing = seeing.to(u.arcsec)
@@ -25,13 +25,25 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
     total_efficiency *= slit_throughput
     total_efficiency *= spectrograph.efficiency
     total_efficiency *= detector.efficiency
-    obs = Observation(source_spectrum, total_efficiency, binset=spectrograph.binset)
-    specdata = obs.sample_binned(spectrograph.binset)
-    specdata *= spectrograph.AperPix
-    specdata *= telescope.area
-    signal = specdata*exptime
-    noise = ( (specdata*exptime).value + np.ones(specdata.shape)*detector.RN**2)**0.5
-    noisy_spectrum = [s+random.gauss(mu=0.0, sigma=noise[i])for i,s in enumerate(signal.value)]
+
+    # Create synphot.Observation of target
+    obs = synphot.Observation(source_spectrum, total_efficiency, binset=spectrograph.binset)
+    signal = obs.sample_binned(spectrograph.binset)
+    signal *= spectrograph.AperPix
+    signal *= telescope.area
+    signal *= exptime
+
+    # Create synphot.Observation of sky
+    sky_file = Path(__file__).parent.parent / 'data' / 'nonstellar' / 'skybg_50_10_photlam.dat'
+    skyspec = synphot.SourceSpectrum.from_file(str(sky_file),
+                                       flux_unit=synphot.units.PHOTLAM)
+    skyobs = synphot.Observation(skyspec, total_efficiency, binset=spectrograph.binset)
+    skysignal = skyobs.sample_binned(spectrograph.binset)
+    skysignal *= spectrograph.AperPix
+    skysignal *= telescope.area
+    skysignal *= exptime
+    pscale = telescope.pixel_scale(detector.pixel_size)
+    skysignal *= (pscale.value)**2
 
     # Simulate 2D spectrum
     P = trace_profile/trace_profile.sum()
@@ -40,6 +52,8 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
     extracted_variance = np.zeros(len(signal))
     for specpix, specval in enumerate(signal.value):
         image[:,specpix] += P*specval
+        image[:,specpix] += skysignal.value[specpix]
+    for specpix, specval in enumerate(signal.value):
         # Optimal Extract 2D Spectrum
         V = P*specval + detector.RN**2
         extracted_spectrum[specpix] = np.sum(P*P*specval/V)/np.sum(P**2/V)
