@@ -15,7 +15,8 @@ from matplotlib import pyplot as plt
 def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
         telescope=ACF14reduced,
         spectrograph=Alpy600,
-        detector=IMX183):
+        detector=IMX183,
+        plot=True):
     spectrograph.generate_binset(detector)
     if not isinstance(seeing, u.Quantity): seeing *= u.arcsec
     seeing = seeing.to(u.arcsec)
@@ -50,39 +51,38 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
     mean_SNR = np.mean(SNR)
 
     # Make Plots
-    plt.figure(figsize=(10,5))
-    tstr = (f'Mean Extracted Signal={mean_signal:.0f} ct/pix, Mean SNR={mean_SNR:.1f}\n'\
-            f'{telescope.name}, {spectrograph.name}, {detector.name}, '\
-            f'seeing={seeing:.1f}, exptime={exptime:.0f}')
-
-    plt.subplot(5,1,1)
-    plt.title(tstr)
-#     norm = vis.No
-    norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),
-                              stretch=vis.LinearStretch())
-    plt.imshow(image, norm=norm, cmap='Grays')
-    plt.gca().set_xticks([])
-    plt.gca().set_yticks([])
-    plt.gca().set_xticklabels([])
-    plt.gca().set_yticklabels([])
-
-    plt.subplot(5,1,(2,3))
-    plt.plot(spectrograph.binset, extracted_spectrum, 'b-')
-#     plt.plot(spectrograph.binset, image.sum(axis=0), 'k-', alpha=0.3)
-    plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
-    plt.ylim(0,1.1*max(extracted_spectrum))
-    plt.ylabel('Extracted (phot/pix)')
-    plt.gca().set_xticklabels([])
-    plt.grid()
-
-    plt.subplot(5,1,(4,5))
-    plt.plot(spectrograph.binset, SNR, 'b-')
-    plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
-    plt.ylim(0,1.1*max(SNR))
-    plt.xlabel('Wavelength (A)')
-    plt.ylabel('SNR')
-    plt.grid()
-
-    plt.show()
+    if plot:
+        plt.figure(figsize=(10,5))
+        tstr = (f'{telescope.name}, {spectrograph.name}, {detector.name}, '\
+                f'seeing={seeing:.1f}, exptime={exptime:.0f}\n'\
+                f'Mean Extracted Signal={mean_signal:.0f} ct/pix, Mean SNR={mean_SNR:.1f}')
+    
+        plt.subplot(5,1,1)
+        plt.title(tstr)
+        norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),
+                                  stretch=vis.LinearStretch())
+        plt.imshow(image, norm=norm, cmap='Grays')
+        plt.gca().set_xticks([])
+        plt.gca().set_yticks([])
+        plt.gca().set_xticklabels([])
+        plt.gca().set_yticklabels([])
+    
+        plt.subplot(5,1,(2,3))
+        plt.plot(spectrograph.binset, extracted_spectrum, 'b-')
+        plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
+        plt.ylim(0,1.1*max(extracted_spectrum))
+        plt.ylabel('Extracted (phot/pix)')
+        plt.gca().set_xticklabels([])
+        plt.grid()
+    
+        plt.subplot(5,1,(4,5))
+        plt.plot(spectrograph.binset, SNR, 'b-')
+        plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
+        plt.ylim(0,1.1*max(SNR))
+        plt.xlabel('Wavelength (A)')
+        plt.ylabel('SNR')
+        plt.grid()
+    
+        plt.show()
 
     return extracted_spectrum, extracted_variance, image
