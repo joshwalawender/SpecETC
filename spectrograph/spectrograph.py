@@ -50,7 +50,7 @@ class Spectrograph(object):
 #         psf = Gaussian2D(amplitude=1, x_mean=0, y_mean=0,
 #                          x_stddev=seeing/2.355, y_stddev=seeing/2.355)
         pscale = tel.pixel_scale(det.pixel_size)
-        gstart = -5*seeing # arcsec
+        gstart = -7*seeing # arcsec
         gend = -gstart+pscale.value/sample_size # arcsec
         gx = np.arange(gstart, gend, pscale.value/sample_size)
         gy = np.arange(gstart, gend, pscale.value/sample_size)
