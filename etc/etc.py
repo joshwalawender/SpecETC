@@ -1,6 +1,7 @@
 from telescope import *
 from spectrograph import *
 from detector import *
+from spectralmodels import get_sky_spectrum
 
 from pathlib import Path
 import random
@@ -16,6 +17,7 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
             telescope=ACF14reduced,
             spectrograph=Alpy600,
             detector=IMX183,
+            skymag=20.5,
             plot=True):
     spectrograph.generate_binset(detector)
     if not isinstance(seeing, u.Quantity): seeing *= u.arcsec
@@ -34,9 +36,7 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
     signal *= exptime
 
     # Create synphot.Observation of sky
-    sky_file = Path(__file__).parent.parent / 'data' / 'nonstellar' / 'skybg_50_10_photlam.dat'
-    skyspec = synphot.SourceSpectrum.from_file(str(sky_file),
-                                       flux_unit=synphot.units.PHOTLAM)
+    skyspec = get_sky_spectrum(mag=skymag)
     skyobs = synphot.Observation(skyspec, total_efficiency, binset=spectrograph.binset)
     skysignal = skyobs.sample_binned(spectrograph.binset)
     skysignal *= spectrograph.AperPix
