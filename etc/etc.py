@@ -76,6 +76,7 @@ def SpecETC(source_spectrum, exptime=60*u.second, seeing=2.5*u.arcsec,
         norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),
                                   stretch=vis.LinearStretch())
         plt.imshow(image, norm=norm, cmap='Grays')
+        plt.xlim(0.4*image.shape[1], 0.6*image.shape[1])
         plt.gca().set_xticks([])
         plt.gca().set_yticks([])
         plt.gca().set_xticklabels([])
