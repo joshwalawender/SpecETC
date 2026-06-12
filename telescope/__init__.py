@@ -1,6 +1,7 @@
 from astropy import units as u
 from .telescope import Telescope
 
+SV102ABV = Telescope('SV102ABV', 102, 814)
 SVQ100 = Telescope('SVQ100', 100, 580)
 SVX152 = Telescope('SVX152', 152, 1200)
 EdgeHD8 = Telescope('EdgeHD 8', 203, 2032, obstruction=2.7*25.4)
