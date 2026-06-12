@@ -6,12 +6,14 @@ from synphot.models import Box1D
 
 
 class Detector(object):
-    def __init__(self, name, pixel_size, Nx, Ny, QE, RN, wav1=None, wav2=None):
+    def __init__(self, name, pixel_size, Nx, Ny, QE, RN, exptime=300*u.second,
+                 wav1=None, wav2=None):
         self.name = name
         self.pixel_size = pixel_size
         self.pixel_shape = np.array((Nx, Ny))
         self.RN = RN
         self.size = self.pixel_size.to(u.mm)*self.pixel_shape
+        self.exptime = exptime
 
         self.efficiency = None
         if type(QE) in [str, Path]:
