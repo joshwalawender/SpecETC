@@ -12,14 +12,10 @@ class Telescope(object):
         self.fl = fl
         if not isinstance(self.fl, u.Quantity): self.fl *= u.mm
         self.fratio = self.fl.to(u.mm)/self.aperture.to(u.mm)
-        # ALPY 600 Spectrograph only accepts light from f/4 beam or slower
-        if self.fratio < 4:
-            self.aperture = self.fl/4
-            self.fratio = self.fl.to(u.mm)/self.aperture.to(u.mm)
         self.obstruction = obstruction
         if not isinstance(self.obstruction, u.Quantity): self.obstruction *= u.mm
         self.area = np.pi*(self.aperture**2-self.obstruction**2).to(u.cm**2)
-        self.efficiency = SpectralElement(Box1D, amplitude=0.90**2, x_0=5500, width=3800)
+        self.efficiency = SpectralElement(Box1D, amplitude=0.90**2, x_0=6000, width=4000)
 
 
     def slit_width(self, slit_size):

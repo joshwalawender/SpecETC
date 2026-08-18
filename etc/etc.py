@@ -7,17 +7,59 @@ import random
 import numpy as np
 from astropy import units as u
 from astropy import visualization as vis
+from astropy.modeling.models import Gaussian2D, Moffat2D
 import synphot
 
 from matplotlib import pyplot as plt
 
+
+def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=1, sample_size=1):
+    seeing = seeing.to(u.arcsec)
+    psf = Moffat2D(amplitude=1, x_0=0, y_0=0,
+                   gamma=seeing.value/2, alpha=alpha)
+    pscale = tel.pixel_scale(det.pixel_size)
+    gstart = -10*seeing.value # arcsec
+    gend = -gstart+pscale.value/sample_size # arcsec
+    gx = np.arange(gstart, gend, pscale.value/sample_size)
+    gy = np.arange(gstart, gend, pscale.value/sample_size)
+    xv, yv = np.meshgrid(gx, gy)
+    total_psf_flux = np.sum(psf(xv, yv))
+    
+    # Generate Slit Mask
+    slit_width = tel.slit_width(slit_size)
+    slit_start = int(np.argmin(abs(gx+slit_width.value/2)))
+    slit_end = int(np.argmin(abs(gx-slit_width.value/2)))
+    w = (xv > gx[slit_start]) & (xv < gx[slit_end])
+    wint = np.array(w, dtype=int)
+    
+    slit_flux = float(np.sum(psf(xv[w], yv[w])))
+    slit_throughput = float(slit_flux/total_psf_flux)
+    
+    trace_profile = np.sum(psf(xv, yv)*wint, axis=1)
+    trace_profile *= slit_throughput/np.sum(trace_profile)
+
+    return slit_throughput, trace_profile
+
+
 def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True):
     spectrograph.generate_binset(detector)
-    slit_throughput, trace_profile = spectrograph.slit_throughput(sky.seeing, telescope, detector)
+    spectrograph.get_geometric_efficiency(telescope)
+    slit_throughput, trace_profile = calculate_slit_throughput(sky.seeing,
+                                                               telescope,
+                                                               spectrograph.slit_size,
+                                                               detector)
     total_efficiency = telescope.efficiency
     total_efficiency *= slit_throughput
-    total_efficiency *= spectrograph.efficiency
+    total_efficiency *= spectrograph.geometric_efficiency
+    total_efficiency *= spectrograph.grating.efficiency
     total_efficiency *= detector.efficiency
+
+# #     print(f"Telescope:    {telescope.efficiency:.0%}")
+#     print(f"Slit:         {slit_throughput:.0%}")
+#     print(f"Grating Beam: {spectrograph.geometric_efficiency:.0%}")
+# #     print(f"Spectrograph: {spectrograph.grating_efficiency:.0%}")
+# #     print(f"Detector:     {detector.efficiency:.0%}")
+# #     print(f"       OTAL = {total_efficiency:.0%}")
 
     # Create synphot.Observation of target
     obs = synphot.Observation(star, total_efficiency, binset=spectrograph.binset)
@@ -124,6 +166,7 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
 
 
 def SpecETC(star, sky, telescope, spectrograph, detector, plot=True):
+    spectrograph.get_geometric_efficiency(telescope)
     signal, skysignal, trace_profile = simulate_1D_spectrum(
                         star, sky, telescope, spectrograph, detector, plot=False)
     image, spectrum, variance = simulate_2D_spectrum(signal, skysignal, trace_profile,
