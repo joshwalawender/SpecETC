@@ -59,25 +59,10 @@ class Grating(object):
         wav = d*(np.sin(self.alpha.to(u.radian).value) + sign*np.sin(beta.to(u.radian).value))
         return wav.to(u.angstrom)
 
-    def find_alpha(self, cwav, a_to_b):
-        '''
-        sin(b) = +/- (m*wav/d - sin(a))
-        sin(a) = +/- (m*wav/d - sin(b))
-        '''
-        alphas = np.arange(0,85,0.5)
-        errs = []
-        for alpha in alphas:
-            self.alpha = alpha*u.deg
-            a_to_b_for_cwav = self.alpha.value - self.beta(cwav).to(u.deg).value
-            errs.append(abs(a_to_b_for_cwav - a_to_b.to(u.deg).value))
-        wmin = np.argmin(errs)
-        self.alpha = alphas[wmin]*u.deg
-        return alphas[wmin]*u.deg
-
 
 class Spectrograph(object):
     def __init__(self, name, slit_size, collimator, grating, camera, eff, m=1,
-                 cwav=6563*u.Angstrom, a_to_b=None):
+                 cwav=6563*u.Angstrom, a_to_b=None, max_detector_width=None):
         self.name = name
         self.slit_size = slit_size.to(u.micron)
         self.collimator = collimator
@@ -85,14 +70,38 @@ class Spectrograph(object):
         self.camera = camera
         self.cwav = cwav
         self.a_to_b = a_to_b
+        self.max_detector_width = max_detector_width
         if a_to_b is not None:
-            self.grating.find_alpha(self.cwav, self.a_to_b)
+            self.find_alpha()
         self.slit_image = self.slit_size*self.camera.fl/self.collimator.fl
         self.lines = [3968.5, 3933.7, 4063, 4132, 4068, 4076, 5889, 5895,
                       6300, 6363, 6563, 6707, 6717, 6731, 8498, 8542, 8662]
         self.line_names = ['CaH', 'CaK', 'FeI', 'FeI', 'SII', 'SII',
                            'NaI', 'NaI', 'OI', 'OI', 'HII', 'LiI',
                            'SII', 'SII', 'CaII', 'CaII', 'CaII']
+
+    def set_detector(self, det):
+        self.det = det
+        self.generate_binset()
+
+    def find_alpha(self):
+        '''
+        sin(b) = +/- (m*wav/d - sin(a))
+        sin(a) = +/- (m*wav/d - sin(b))
+        '''
+        alphas = np.arange(0,85,0.2)
+        errs = []
+        for alpha in alphas:
+            self.grating.alpha = alpha*u.deg
+            a_to_b_for_cwav = self.grating.alpha.value - self.grating.beta(self.cwav).to(u.deg).value
+            errs.append(abs(a_to_b_for_cwav - self.a_to_b.to(u.deg).value))
+        wmin = np.nanargmin(errs)
+        self.grating.alpha = alphas[wmin]*u.deg
+        if min(errs) > 0.3 or self.grating.alpha.value <= 0 or self.grating.alpha.value >= 85:
+            print(f'Issues Finding Alpha for {self.name}')
+            print(wmin, alphas[wmin]*u.deg, errs[wmin])
+            print([float(e) for e in errs])
+        return self.grating.alpha
 
     def get_geometric_efficiency(self, tel, plot=False):
         # Collimator
@@ -122,24 +131,26 @@ class Spectrograph(object):
             plt.imshow(grating_footprint)
             plt.show()
 
-    def generate_binset(self, det):
+    def generate_binset(self):
         beta0 = self.grating.beta(self.cwav)
-        cam_ps = 206.265*u.arcsec*det.pixel_size.to(u.micron).value/self.camera.fl.to(u.mm).value
-
-        print(beta0, cam_ps, det.pixel_shape[1]/2)
-        beta1 = (beta0-cam_ps*det.pixel_shape[1]/2).to(u.deg).value
-        beta2 = (beta0+cam_ps*det.pixel_shape[1]/2).to(u.deg).value
+        cam_ps = 206.265*u.arcsec*self.det.pixel_size.to(u.micron).value/self.camera.fl.to(u.mm).value
+        cam_mmscale = 206265*u.arcsec/self.camera.fl.to(u.mm)
+        if self.max_detector_width is None:
+            beta1 = (beta0-cam_ps*self.det.pixel_shape[0]/2).to(u.deg).value
+            beta2 = (beta0+cam_ps*self.det.pixel_shape[0]/2).to(u.deg).value
+        elif self.max_detector_width > self.det.size[0]:
+            beta1 = (beta0-cam_ps*self.det.pixel_shape[0]/2).to(u.deg).value
+            beta2 = (beta0+cam_ps*self.det.pixel_shape[0]/2).to(u.deg).value
+        else:
+            beta1 = (beta0-cam_mmscale*self.max_detector_width/2).to(u.deg).value
+            beta2 = (beta0+cam_mmscale*self.max_detector_width/2).to(u.deg).value
         delta_beta = cam_ps.to(u.deg).value
-        print(beta1, beta2, delta_beta)
-
-        betas = np.arange((beta0-cam_ps*det.pixel_shape[1]/2).to(u.deg).value,
-                          (beta0+cam_ps*det.pixel_shape[1]/2).to(u.deg).value,
-                          cam_ps.to(u.deg).value)
+        betas = np.arange(beta1, beta2, delta_beta)
         self.binset = np.array([self.grating.wav(b*u.degree).to(u.Angstrom).value for b in betas])
         wav1 = self.grating.wav(beta0).to(u.Angstrom)
         wav2 = self.grating.wav(beta0+cam_ps).to(u.Angstrom)
         self.AperPix = wav2-wav1
-        self.slit_pix = self.slit_image/det.pixel_size.to(u.micron)
+        self.slit_pix = self.slit_image/self.det.pixel_size.to(u.micron)
         self.slit_span = self.slit_pix*self.AperPix
         self.R = self.binset / self.slit_span.value
         return self.binset
@@ -149,8 +160,10 @@ class Spectrograph(object):
         wavmin = min(self.binset)
         wavmax = max(self.binset)
         meanR = np.mean(self.R)
-        t = (f"{wavmin:.0f} A - {wavmax:.0f} A ({wavmax-wavmin:.0f} A span) "
-             f"Slit = {self.slit_pix:.0f} pix = {self.slit_span:.0f}\n"
+        cwav = self.cwav.to(u.Angstrom).value
+        t = (f"{self.name} + {self.det.name}: Cwav = {cwav:.0f} A\n"
+             f"{wavmin:.0f} A - {wavmax:.0f} A ({wavmax-wavmin:.0f} A span)\n"
+#              f"Slit = {self.slit_pix:.0f} pix = {self.slit_span:.0f} thus "
              f"R ~ {meanR:.0f} ({min(self.R):.0f} - {max(self.R):.0f}) ~ {3e5/meanR:.0f} km/s")
         plt.title(t)
         plt.plot(self.binset, self.R, 'k-')
