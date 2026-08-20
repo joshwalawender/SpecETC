@@ -19,7 +19,7 @@ class Detector(object):
         if type(QE) in [str, Path]:
             QEfile = Path(QE).expanduser().absolute()
             if QEfile.exists():
-                print(f'{name}: Reading detector efficiency from {QEfile}')
+#                 print(f'{name}: Reading detector efficiency from {QEfile}')
                 self.efficiency = SpectralElement.from_file(str(QEfile))
             else:
                 print('ERROR: {QEfile} not found')
