@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 from astropy import units as u
 from synphot import SpectralElement
@@ -15,7 +16,9 @@ class Telescope(object):
         self.obstruction = obstruction
         if not isinstance(self.obstruction, u.Quantity): self.obstruction *= u.mm
         self.area = np.pi*(self.aperture**2-self.obstruction**2).to(u.cm**2)
-        self.efficiency = SpectralElement(Box1D, amplitude=0.90**2, x_0=6000, width=4000)
+        atmfile = Path(__file__).parent.parent / 'data' / 'atmosphere' / 'Lick_airmass1p5.csv'
+        self.efficiency = SpectralElement.from_file(str(atmfile.expanduser()))
+        self.efficiency *= SpectralElement(Box1D, amplitude=0.90**2, x_0=6500, width=7000)
 
 
     def slit_width(self, slit_size):

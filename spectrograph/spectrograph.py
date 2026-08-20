@@ -1,10 +1,13 @@
 from pathlib import Path
 import numpy as np
 from astropy import units as u
+from astropy.table import Table
 from synphot import SpectralElement
 from synphot.models import Box1D
 
 from matplotlib import pyplot as plt
+
+# from etc.spectralmodels import spectral_lines
 
 
 class Optic(object):
@@ -74,11 +77,11 @@ class Spectrograph(object):
         if a_to_b is not None:
             self.find_alpha()
         self.slit_image = self.slit_size*self.camera.fl/self.collimator.fl
-        self.lines = [3968.5, 3933.7, 4063, 4132, 4068, 4076, 5889, 5895,
-                      6300, 6363, 6563, 6707, 6717, 6731, 8498, 8542, 8662]
-        self.line_names = ['CaH', 'CaK', 'FeI', 'FeI', 'SII', 'SII',
-                           'NaI', 'NaI', 'OI', 'OI', 'HII', 'LiI',
-                           'SII', 'SII', 'CaII', 'CaII', 'CaII']
+#         self.lines = [3968.5, 3933.7, 4063, 4132, 4068, 4076, 5889, 5895,
+#                       6300, 6363, 6563, 6707, 6717, 6731, 8498, 8542, 8662]
+#         self.line_names = ['CaH', 'CaK', 'FeI', 'FeI', 'SII', 'SII',
+#                            'NaI', 'NaI', 'OI', 'OI', 'HII', 'LiI',
+#                            'SII', 'SII', 'CaII', 'CaII', 'CaII']
 
     def set_detector(self, det):
         self.det = det
@@ -167,12 +170,16 @@ class Spectrograph(object):
              f"R ~ {meanR:.0f} ({min(self.R):.0f} - {max(self.R):.0f}) ~ {3e5/meanR:.0f} km/s")
         plt.title(t)
         plt.plot(self.binset, self.R, 'k-')
-        for i,line in enumerate(self.lines):
-            if line > wavmin and line < wavmax:
-                color = 'b' if line < 5500 else 'r'
-                alpha = 0.5
-                plt.axvline(line, ymax=0.5, color=color, alpha=alpha)
-                plt.text(line, max(self.R)*0.98, self.line_names[i], color=color, alpha=alpha)
+        lines_file = Path(__file__).parent.parent / 'data' / 'spectral_lines.csv'
+        lines = Table.read(lines_file, format='ascii.csv')
+        for line in lines:
+            if line['wav'] > wavmin and line['wav'] < wavmax:
+                color = 'b' if line['wav'] < 5500 else 'r'
+                alpha = 0.3
+                plt.axvline(line['wav'], ymin=0.2, ymax=0.8,
+                            color=color, alpha=alpha)
+                plt.text(line['wav'], 0.9*max(self.R), line['name'],
+                         color=color, alpha=alpha)
         plt.xlabel('Wavelength (A)')
         plt.ylabel('R')
         plt.xlim(wavmin, wavmax)
@@ -198,6 +205,7 @@ class Alpy600Spec(Spectrograph):
         self.AperPix = None
         self.magnification = magnification
         self.grating = Grating(0*u.deg, 600, m=1, diameter=25*u.mm, efficiency=eff)
+        self.grating.efficiency *= SpectralElement(Box1D, amplitude=1, x_0=5500, width=4000)
 
     def get_geometric_efficiency(self, tel):
         if tel.fratio >= 4:
@@ -211,8 +219,12 @@ class Alpy600Spec(Spectrograph):
     def __repr__(self):
         return f"{self.name}"
 
-    def generate_binset(self, det):
-        self.AperPix = self.dispersion*det.pixel_size.to(u.mm)
+    def set_detector(self, det):
+        self.det = det
+        self.generate_binset()
+
+    def generate_binset(self):
+        self.AperPix = self.dispersion*self.det.pixel_size.to(u.mm)
         self.binset = np.arange(self.grating.efficiency.waveset[0].value,
                                 self.grating.efficiency.waveset[-1].value,
                                 self.AperPix.value)

@@ -7,6 +7,7 @@ import random
 import numpy as np
 from astropy import units as u
 from astropy import visualization as vis
+from astropy.table import Table
 from astropy.modeling.models import Gaussian2D, Moffat2D
 import synphot
 
@@ -42,7 +43,8 @@ def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=1, sample_size=
 
 
 def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True):
-    spectrograph.generate_binset(detector)
+    spectrograph.set_detector(detector)
+    spectrograph.generate_binset()
     spectrograph.get_geometric_efficiency(telescope)
     slit_throughput, trace_profile = calculate_slit_throughput(sky.seeing,
                                                                telescope,
@@ -62,14 +64,18 @@ def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True
 # #     print(f"       OTAL = {total_efficiency:.0%}")
 
     # Create synphot.Observation of target
-    obs = synphot.Observation(star, total_efficiency, binset=spectrograph.binset)
+    obs = synphot.Observation(star, total_efficiency,
+                              binset=spectrograph.binset,
+                              force='taper')
     signal = obs.sample_binned(spectrograph.binset)
     signal *= spectrograph.AperPix
     signal *= telescope.area
     signal *= detector.exptime
 
     # Create synphot.Observation of sky
-    skyobs = synphot.Observation(sky.skyspec, total_efficiency, binset=spectrograph.binset)
+    skyobs = synphot.Observation(sky.skyspec, total_efficiency,
+                                 binset=spectrograph.binset,
+                                 force='taper')
     skysignal = skyobs.sample_binned(spectrograph.binset)
     skysignal *= spectrograph.AperPix
     skysignal *= telescope.area
@@ -131,33 +137,34 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
         norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),
                                   stretch=vis.LinearStretch())
         plt.imshow(image, norm=norm, cmap='Grays')
-#         plt.xlim(0.4*image.shape[1], 0.6*image.shape[1])
-#         imwav1 = 5500
-#         imwav2 = 6800
-#         plt.xlim(min(np.where(Alpy600.binset > imwav1)[0]),
-#                  max(np.where(Alpy600.binset < imwav2)[0]))
         plt.gca().set_xticks([])
         plt.gca().set_yticks([])
         plt.gca().set_xticklabels([])
         plt.gca().set_yticklabels([])
-    
+
         plt.subplot(3,1,(2,3))
-        plt.plot(spectrograph.binset, extracted_spectrum, 'b-')
+        plt.plot(spectrograph.binset, extracted_spectrum, 'k-')
         plt.plot(spectrograph.binset, image.sum(axis=0), 'k-', alpha=0.2)
+
+        lines_file = Path(__file__).parent.parent / 'data' / 'spectral_lines.csv'
+        lines = Table.read(lines_file, format='ascii.csv')
+        wavmin = min(spectrograph.binset)
+        wavmax = max(spectrograph.binset)
+        for line in lines:
+            if line['wav'] > wavmin and line['wav'] < wavmax:
+                color = 'b' if line['wav'] < 5500 else 'r'
+                alpha = 0.3
+                plt.axvline(line['wav'], ymin=0.2, ymax=0.8,
+                            color=color, alpha=alpha)
+                plt.text(line['wav'], 0.04*max(extracted_spectrum), line['name'],
+                         color=color, alpha=alpha)
+
         plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
         plt.ylim(0,1.1*max(extracted_spectrum))
         plt.ylabel('Extracted (phot/1Dpix)')
-        plt.gca().set_xticklabels([])
+        plt.xlabel('Wavelength (A)')
         plt.grid()
-    
-#         plt.subplot(5,1,(4,5))
-#         plt.plot(spectrograph.binset, SNR, 'b-')
-#         plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
-#         plt.ylim(0,1.1*max(SNR))
-#         plt.xlabel('Wavelength (A)')
-#         plt.ylabel('SNR')
-#         plt.grid()
-    
+
         plt.show()
 
     return image, extracted_spectrum, extracted_variance
