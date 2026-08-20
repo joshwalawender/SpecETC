@@ -15,7 +15,7 @@ UVEXCol = Optic('Collimator', 25*u.mm, 100*u.mm)
 UVEXCam = Optic('Camera', 25*u.mm, 100*u.mm)
 UVEX300 = Spectrograph('UVEX300', 23*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 300/u.mm, 25*u.mm, m=1, minus=False),
-                       UVEXCam, 0.35, cwav=5400*u.Angstrom,
+                       UVEXCam, 0.35, cwav=6500*u.Angstrom,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
 UVEX600 = Spectrograph('UVEX600', 23*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 600/u.mm, 25*u.mm, m=1, minus=False),
