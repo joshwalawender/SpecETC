@@ -123,15 +123,17 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
 
     mean_signal = np.mean(extracted_spectrum)
     mean_SNR = np.mean(SNR)
-    
 
     # Make Plots
     if plot:
         plt.figure(figsize=(10,3))
+        minR = min(spectrograph.R)
+        maxR = max(spectrograph.R)
+        meanR = np.mean(spectrograph.R)
         tstr = (f'{telescope.name}, {spectrograph.name}, {detector.name}, '\
                 f'seeing={sky.seeing:.1f}, exptime={detector.exptime:.0f}\n'\
-                f'SNR: min={min(SNR):.1f}, mean={mean_SNR:.1f}, max={max(SNR):.1f}')
-
+                f'SNR: min={min(SNR):.1f}, mean={mean_SNR:.1f}, max={max(SNR):.1f}\n'\
+                f"R ~ {meanR:.0f} ({minR:.0f} - {maxR:.0f}) ~ {3e5/meanR:.0f} km/s")
         plt.subplot(3,1,1)
         plt.title(tstr)
         norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),

@@ -109,30 +109,32 @@ class Spectrograph(object):
     def get_geometric_efficiency(self, tel, plot=False):
         # Collimator
         input_beam_size = self.collimator.fl/tel.fratio
-        collimator_geometric_eff = min([1, (self.collimator.aperture/input_beam_size)**2])
-        if input_beam_size > self.collimator.aperture:
-            input_beam_size = self.collimator.aperture
+        collimated_beam_size = min([self.collimator.aperture, input_beam_size])
+        collimated_beam_area = collimated_beam_size**2/4*np.pi
+
         # Grating
         alpha_rad = self.grating.alpha.to(u.radian).value
-        beam_area = input_beam_size**2/4*np.pi
         res = 0.01*u.mm
         grating_projection = self.grating.diameter.to(u.mm)*np.cos(alpha_rad)
         xs = np.arange(0, self.grating.diameter.to(u.mm).value*np.cos(alpha_rad)/2, res.value)
         ys = np.arange(0, self.grating.diameter.to(u.mm).value/2, res.value)
         xvals, yvals = np.meshgrid(xs, ys)
         radius = (xvals**2 + yvals**2)**0.5
-        grating_footprint = np.array(radius < input_beam_size.to(u.mm).value/2, dtype=int)
-        area = grating_footprint.sum() * res**2 * 4
-        self.geometric_efficiency = area/beam_area
+        grating_footprint = np.array(radius < collimated_beam_size.to(u.mm).value/2, dtype=int)
+        illuminated_area = grating_footprint.sum() * res**2 * 4
+        self.geometric_efficiency = illuminated_area/collimated_beam_area
+
         if plot:
             import matplotlib.pyplot as plt
-            tlt = [f"Beam = {input_beam_size:.1f}",
-                   f"grating = {grating_projection:.1f}",
+            tlt = [f"Input Beam D = {input_beam_size:.1f}",
+                   f"Collimated Beam D = {collimated_beam_size:.1f}",
+                   f"Grating D = {grating_projection:.1f}",
                    f"efficiency = {self.geometric_efficiency:.0%}"]
             plt.figure(figsize=(6,6))
             plt.title('\n'.join(tlt))
             plt.imshow(grating_footprint)
             plt.show()
+        return self.geometric_efficiency
 
     def generate_binset(self):
         beta0 = self.grating.beta(self.cwav)
@@ -196,16 +198,22 @@ class Spectrograph(object):
 
 
 class Alpy600Spec(Spectrograph):
-    def __init__(self, name, slit_size, dispersion, eff,
-                 wav1=None, wav2=None, magnification=1):
+    def __init__(self, name, slit_size, 
+                 dispersion=480*u.AA/u.mm, eff=0.35, magnification=1,
+                 wavc=5500*u.AA, wavwidth=4000*u.AA):
         self.name = name
         self.slit_size = slit_size
         self.dispersion = dispersion
+        self.wavc = wavc
+        self.wavwidth = wavwidth
         self.binset = None
         self.AperPix = None
         self.magnification = magnification
         self.grating = Grating(0*u.deg, 600, m=1, diameter=25*u.mm, efficiency=eff)
-        self.grating.efficiency *= SpectralElement(Box1D, amplitude=1, x_0=5500, width=4000)
+        self.grating.efficiency = SpectralElement(Box1D, amplitude=eff,
+                                                  x_0=wavc.to(u.AA).value,
+                                                  width=wavwidth.to(u.AA).value)
+        self.R = [600]
 
     def get_geometric_efficiency(self, tel):
         if tel.fratio >= 4:
@@ -225,7 +233,12 @@ class Alpy600Spec(Spectrograph):
 
     def generate_binset(self):
         self.AperPix = self.dispersion*self.det.pixel_size.to(u.mm)
-        self.binset = np.arange(self.grating.efficiency.waveset[0].value,
-                                self.grating.efficiency.waveset[-1].value,
-                                self.AperPix.value)
-        
+        cpix = self.det.pixel_shape[0]/2
+        wav1 = self.wavc.to(u.AA).value - cpix*self.AperPix.value
+        wav2 = self.wavc.to(u.AA).value + cpix*self.AperPix.value
+        self.binset = np.arange(wav1, wav2, self.AperPix.value)
+
+        self.slit_image = self.slit_size.to(u.micron).value*self.magnification
+        self.slit_pix = self.slit_image/self.det.pixel_size.to(u.micron).value
+        self.slit_span = self.slit_pix*self.AperPix.value
+        self.R = self.binset / self.slit_span

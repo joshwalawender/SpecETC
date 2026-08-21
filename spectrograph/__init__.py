@@ -15,15 +15,15 @@ UVEXCol = Optic('Collimator', 25*u.mm, 100*u.mm)
 UVEXCam = Optic('Camera', 25*u.mm, 100*u.mm)
 UVEX300 = Spectrograph('UVEX300', 23*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 300/u.mm, 25*u.mm, m=1, minus=False),
-                       UVEXCam, 0.35, cwav=6500*u.Angstrom,
+                       UVEXCam, 0.35, cwav=6500*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
 UVEX600 = Spectrograph('UVEX600', 23*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 600/u.mm, 25*u.mm, m=1, minus=False),
-                       UVEXCam, 0.35, cwav=6500*u.Angstrom,
+                       UVEXCam, 0.35, cwav=6500*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
 UVEX1200 = Spectrograph('UVEX1200', 23*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 1200/u.mm, 25*u.mm, m=1, minus=False),
-                       UVEXCam, 0.35, cwav=6500*u.Angstrom,
+                       UVEXCam, 0.35, cwav=6500*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
 
-Alpy600 = Alpy600Spec('Alpy600', 23*u.micron, 480*u.A/u.mm, 0.3, wav1=3600, wav2=7400)
+Alpy600 = Alpy600Spec('Alpy600', 23*u.micron)
