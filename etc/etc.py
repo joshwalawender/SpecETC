@@ -66,7 +66,7 @@ def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True
     # Create synphot.Observation of target
     obs = synphot.Observation(star, total_efficiency,
                               binset=spectrograph.binset,
-                              force='taper')
+                              force='extrap')
     signal = obs.sample_binned(spectrograph.binset)
     signal *= spectrograph.AperPix
     signal *= telescope.area
@@ -75,7 +75,7 @@ def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True
     # Create synphot.Observation of sky
     skyobs = synphot.Observation(sky.skyspec, total_efficiency,
                                  binset=spectrograph.binset,
-                                 force='taper')
+                                 force='extrap')
     skysignal = skyobs.sample_binned(spectrograph.binset)
     skysignal *= spectrograph.AperPix
     skysignal *= telescope.area
@@ -162,7 +162,7 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
                          color=color, alpha=alpha)
 
         plt.xlim(min(spectrograph.binset), max(spectrograph.binset))
-        plt.ylim(0,1.1*max(extracted_spectrum))
+        plt.ylim(0,1.3*max(extracted_spectrum))
         plt.ylabel('Extracted (phot/1Dpix)')
         plt.xlabel('Wavelength (A)')
         plt.grid()
