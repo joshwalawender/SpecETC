@@ -13,3 +13,7 @@ ACF14reduced = Telescope('14ACFx0.63', 356*u.mm, 3556*u.mm*0.63, obstruction=6.5
 RCA10 = Telescope('RCA10', 254*u.mm, 1778*u.mm, obstruction=127*u.mm)
 Newtonian12 = Telescope('12inch-f/3', 305, 914*1.15, obstruction=4.0*25.4)
 K1 = Telescope('K1', 10*1e3, 15*10*1e3)
+CDK17 = Telescope('CDK17', 432*u.mm, 2939*u.mm, obstruction=8.27*25.4*u.mm)
+CDK20 = Telescope('CDK20', 508*u.mm, 3454*u.mm, obstruction=7.80*25.4*u.mm)
+CDK20L = Telescope('CDK20 f/7.7', 508*u.mm, 3951*u.mm, obstruction=7.80*25.4*u.mm)
+CDK24 = Telescope('CDK24', 610*u.mm, 3974*u.mm, obstruction=11.29*25.4*u.mm)
