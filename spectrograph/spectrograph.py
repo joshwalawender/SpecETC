@@ -157,7 +157,17 @@ class Spectrograph(object):
         self.AperPix = wav2-wav1
         self.slit_pix = self.slit_image/self.det.pixel_size.to(u.micron)
         self.slit_span = self.slit_pix*self.AperPix
-        self.R = self.binset / self.slit_span.value
+        # Anamorphic Magnification
+        Amag = np.cos(self.grating.alpha.to(u.radian).value)/np.cos(betas*np.pi/180)
+        self.R = self.binset / self.slit_span.value / Amag
+
+        # Find smallest slit image size (for possible binning recommendation)
+        min_slit_pix = min(self.slit_pix*Amag)
+        if min_slit_pix > 5:
+            print(f'Slit image is {min_slit_pix:.1f} pixels, consider binning')
+        if min_slit_pix < 2.5:
+            print(f'Slit image is possibly undersampled: {min_slit_pix:.1f} pixels.')
+
         return self.binset
 
     def plot_coverage(self):
