@@ -13,20 +13,24 @@ from .spectrograph import Spectrograph, Alpy600Spec, Grating, Optic
 # It offers a useful image length (without degradation of quality) of 20 mm
 UVEXCol = Optic('Collimator', 25*u.mm, 100*u.mm)
 UVEXCam = Optic('Camera', 25*u.mm, 100*u.mm)
-UVEX300 = Spectrograph('UVEX300', 23*u.micron, UVEXCol,
+UVEX300 = Spectrograph('UVEX300', 25*u.micron, UVEXCol,
+                       Grating(15.5*u.deg, 300/u.mm, 25*u.mm, m=1, minus=False),
+                       UVEXCam, 0.35, cwav=5500*u.AA,
+                       a_to_b=27*u.deg, max_detector_width=20*u.mm)
+UVEX300_35 = Spectrograph('UVEX300/35', 35*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 300/u.mm, 25*u.mm, m=1, minus=False),
                        UVEXCam, 0.35, cwav=5500*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
 UVEX300b = UVEX300
-UVEX300r = Spectrograph('UVEX300r', 23*u.micron, UVEXCol,
+UVEX300r = Spectrograph('UVEX300r', 25*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 300/u.mm, 25*u.mm, m=1, minus=False),
                        UVEXCam, 0.35, cwav=7000*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
-UVEX600 = Spectrograph('UVEX600', 23*u.micron, UVEXCol,
+UVEX600 = Spectrograph('UVEX600', 25*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 600/u.mm, 25*u.mm, m=1, minus=False),
                        UVEXCam, 0.35, cwav=6500*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
-UVEX1200 = Spectrograph('UVEX1200', 23*u.micron, UVEXCol,
+UVEX1200 = Spectrograph('UVEX1200', 25*u.micron, UVEXCol,
                        Grating(15.5*u.deg, 1200/u.mm, 25*u.mm, m=1, minus=False),
                        UVEXCam, 0.35, cwav=6500*u.AA,
                        a_to_b=27*u.deg, max_detector_width=20*u.mm)
