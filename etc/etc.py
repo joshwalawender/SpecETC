@@ -44,7 +44,6 @@ def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=1, sample_size=
 
 def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True):
     spectrograph.set_detector(detector)
-    spectrograph.generate_binset()
     spectrograph.get_geometric_efficiency(telescope)
     slit_throughput, trace_profile = calculate_slit_throughput(sky.seeing,
                                                                telescope,
