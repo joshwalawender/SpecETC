@@ -3,6 +3,7 @@ from spectrograph import *
 from detector import *
 
 from pathlib import Path
+import warnings
 import random
 import numpy as np
 from astropy import units as u
@@ -14,7 +15,10 @@ import synphot
 from matplotlib import pyplot as plt
 
 
-def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=1, sample_size=1):
+warnings.filterwarnings("ignore", message="Source spectrum will be evaluated outside pre-defined waveset.*")
+
+
+def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=2.5, sample_size=20):
     seeing = seeing.to(u.arcsec)
     psf = Moffat2D(amplitude=1, x_0=0, y_0=0,
                    gamma=seeing.value/2, alpha=alpha)
@@ -50,8 +54,7 @@ def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True
                                                                spectrograph.slit_size,
                                                                detector)
     total_efficiency = telescope.efficiency
-    total_efficiency *= slit_throughput
-    total_efficiency *= spectrograph.geometric_efficiency
+    total_efficiency *= slit_throughput    total_efficiency *= spectrograph.geometric_efficiency
     total_efficiency *= spectrograph.grating.efficiency
     total_efficiency *= detector.efficiency
 
