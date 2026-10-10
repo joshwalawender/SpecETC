@@ -162,11 +162,13 @@ class Spectrograph(object):
         self.R = self.binset / self.slit_span.value / Amag
 
         # Find smallest slit image size (for possible binning recommendation)
-        min_slit_pix = min(self.slit_pix*Amag)
-        if min_slit_pix > 5:
-            print(f'Slit image is {min_slit_pix:.1f} pixels, consider binning')
-        if min_slit_pix < 2.5:
-            print(f'Slit image is possibly undersampled: {min_slit_pix:.1f} pixels.')
+        med_slit_pix = np.median(self.slit_pix*Amag)
+        if med_slit_pix < 2.5:
+            print(f'Slit image is undersampled: {med_slit_pix:.1f} pixels.')
+#         elif med_slit_pix >= 2.5 and med_slit_pix <= 5:
+#             print(f'Slit image is well sampled {med_slit_pix:.1f} pixels.')
+        elif med_slit_pix > 5:
+            print(f'Slit image is {med_slit_pix:.1f} pixels, consider binning')
 
         return self.binset
 
