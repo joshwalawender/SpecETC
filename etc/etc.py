@@ -23,38 +23,44 @@ def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=2.5, sample_siz
     psf = Moffat2D(amplitude=1, x_0=0, y_0=0,
                    gamma=seeing.value/2, alpha=alpha)
     pscale = tel.pixel_scale(det.pixel_size)
-    gstart = -10*seeing.value # arcsec
+
+    gstart = -9*seeing.value # arcsec
     gend = -gstart+pscale.value/sample_size # arcsec
     gx = np.arange(gstart, gend, pscale.value/sample_size)
     gy = np.arange(gstart, gend, pscale.value/sample_size)
     xv, yv = np.meshgrid(gx, gy)
-    total_psf_flux = np.sum(psf(xv, yv))
-    
+    psf_vals = psf(xv, yv)
+    norm = np.sum(psf_vals)
+    psf_vals /= norm
+
     # Generate Slit Mask
     slit_width = tel.slit_width(slit_size)
     slit_start = int(np.argmin(abs(gx+slit_width.value/2)))
     slit_end = int(np.argmin(abs(gx-slit_width.value/2)))
     w = (xv > gx[slit_start]) & (xv < gx[slit_end])
+    slit_throughput = np.sum(psf_vals[w])
+
     wint = np.array(w, dtype=int)
-    
-    slit_flux = float(np.sum(psf(xv[w], yv[w])))
-    slit_throughput = float(slit_flux/total_psf_flux)
-    
-    trace_profile = np.sum(psf(xv, yv)*wint, axis=1)
-    trace_profile *= slit_throughput/np.sum(trace_profile)
+    trace_profile = np.sum(psf_vals*wint, axis=1)
+    trace_profile /= np.sum(trace_profile)
+
+    extra_pix = len(trace_profile) % sample_size
+    trace_profile = trace_profile[:-extra_pix]
+    rf = int(len(trace_profile)/sample_size)
+    trace_profile = trace_profile.reshape((rf, len(trace_profile) // rf)).sum(axis=1)
 
     return slit_throughput, trace_profile
 
 
 def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True):
-    spectrograph.set_detector(detector)
     spectrograph.get_geometric_efficiency(telescope)
     slit_throughput, trace_profile = calculate_slit_throughput(sky.seeing,
                                                                telescope,
                                                                spectrograph.slit_size,
                                                                detector)
     total_efficiency = telescope.efficiency
-    total_efficiency *= slit_throughput    total_efficiency *= spectrograph.geometric_efficiency
+    total_efficiency *= slit_throughput
+    total_efficiency *= spectrograph.geometric_efficiency
     total_efficiency *= spectrograph.grating.efficiency
     total_efficiency *= detector.efficiency
 
@@ -103,23 +109,26 @@ def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True
 
         plt.show()
 
-    return signal, skysignal, trace_profile
+    return signal, skysignal, trace_profile, slit_throughput
 
 
 def simulate_2D_spectrum(signal, skysignal, trace_profile,
                          star, sky, telescope, spectrograph, detector, plot=True):
-    P = trace_profile/trace_profile.sum()
+    slit_throughput, tp = calculate_slit_throughput(sky.seeing,
+                                                    telescope,
+                                                    spectrograph.slit_size,
+                                                    detector)
     image = np.random.normal(0, detector.RN, (len(trace_profile),len(signal)))
     extracted_spectrum = np.zeros(len(signal))
     extracted_variance = np.zeros(len(signal))
     for specpix, specval in enumerate(signal.value):
-        image[:,specpix] += P*specval
+        image[:,specpix] += trace_profile*specval
         image[:,specpix] += skysignal.value[specpix]
     for specpix, specval in enumerate(signal.value):
         # Optimal Extract 2D Spectrum
-        V = P*specval + detector.RN**2
-        extracted_spectrum[specpix] = np.sum(P*P*specval/V)/np.sum(P**2/V)
-        extracted_variance[specpix] = 1/np.sum(P**2/V)
+        V = trace_profile*specval + detector.RN**2
+        extracted_spectrum[specpix] = np.sum(trace_profile**2*specval/V)/np.sum(trace_profile**2/V)
+        extracted_variance[specpix] = 1/np.sum(trace_profile**2/V)
 
     SNR = extracted_spectrum/extracted_variance**0.5
 
@@ -133,13 +142,14 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
         maxR = max(spectrograph.R)
         meanR = np.mean(spectrograph.R)
         tstr = (f'{telescope.name}, {spectrograph.name}, {detector.name}, '\
-                f'seeing={sky.seeing:.1f}, exptime={detector.exptime:.0f}\n'\
-                f'SNR: min={min(SNR):.1f}, mean={mean_SNR:.1f}, max={max(SNR):.1f}\n'\
-                f"R ~ {meanR:.0f} ({minR:.0f} - {maxR:.0f}) ~ {3e5/meanR:.0f} km/s")
+                f'exptime={detector.exptime:.0f}\n'\
+                f'seeing={sky.seeing.value:.1f}", Slit={slit_throughput:.0%} '\
+                f'SNR={mean_SNR:.1f} ({min(SNR):.1f} - {max(SNR):.1f})\n'\
+                f"R~{meanR:.0f} ({minR:.0f} - {maxR:.0f}) ~ {3e5/meanR:.0f} km/s")
         plt.subplot(3,1,1)
         plt.title(tstr)
-        norm = vis.ImageNormalize(image, interval=vis.PercentileInterval(99.9),
-                                  stretch=vis.LinearStretch())
+        norm = vis.ImageNormalize(image, interval=vis.MinMaxInterval(),
+                                  stretch=vis.LogStretch(1))
         plt.imshow(image, norm=norm, cmap='Grays')
         plt.gca().set_xticks([])
         plt.gca().set_yticks([])
@@ -148,7 +158,7 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
 
         plt.subplot(3,1,(2,3))
         plt.plot(spectrograph.binset, extracted_spectrum, 'k-')
-        plt.plot(spectrograph.binset, image.sum(axis=0), 'k-', alpha=0.2)
+        plt.plot(spectrograph.binset, image.sum(axis=0), 'k-', alpha=0.3)
 
         lines_file = Path(__file__).parent.parent / 'data' / 'spectral_lines.csv'
         lines = Table.read(lines_file, format='ascii.csv')
@@ -178,7 +188,8 @@ def simulate_2D_spectrum(signal, skysignal, trace_profile,
 
 def SpecETC(star, sky, telescope, spectrograph, detector, plot=True):
     spectrograph.get_geometric_efficiency(telescope)
-    signal, skysignal, trace_profile = simulate_1D_spectrum(
+    spectrograph.set_detector(detector)
+    signal, skysignal, trace_profile, slit_throughput = simulate_1D_spectrum(
                         star, sky, telescope, spectrograph, detector, plot=False)
     image, spectrum, variance = simulate_2D_spectrum(signal, skysignal, trace_profile,
                         star, sky, telescope, spectrograph, detector, plot=plot)
