@@ -20,8 +20,9 @@ warnings.filterwarnings("ignore", message="Source spectrum will be evaluated out
 
 def calculate_slit_throughput(seeing, tel, slit_size, det, alpha=2.5, sample_size=20):
     seeing = seeing.to(u.arcsec)
+    gamma = seeing.value/2/(2**(1/alpha)-1)**0.5
     psf = Moffat2D(amplitude=1, x_0=0, y_0=0,
-                   gamma=seeing.value/2, alpha=alpha)
+                   gamma=gamma, alpha=alpha)
     pscale = tel.pixel_scale(det.pixel_size)
 
     gstart = -9*seeing.value # arcsec
@@ -57,7 +58,8 @@ def simulate_1D_spectrum(star, sky, telescope, spectrograph, detector, plot=True
     slit_throughput, trace_profile = calculate_slit_throughput(sky.seeing,
                                                                telescope,
                                                                spectrograph.slit_size,
-                                                               detector)
+                                                               detector,
+                                                               alpha=sky.alpha)
     total_efficiency = telescope.efficiency
     total_efficiency *= slit_throughput
     total_efficiency *= spectrograph.geometric_efficiency

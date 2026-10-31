@@ -5,9 +5,10 @@ from .stellar_models import *
 
 
 class Sky(object):
-    def __init__(self, seeing, mag):
+    def __init__(self, seeing, mag, alpha=2.5):
         if not isinstance(seeing, u.Quantity): seeing *= u.arcsec
         self.seeing = seeing.to(u.arcsec)
+        self.alpha = alpha
         self.mag = mag
         path_to_data = Path(__file__).parent.parent / 'data' / 'nonstellar'
         sky_file = path_to_data / 'skybg_50_10_photlam.dat'
